@@ -311,7 +311,7 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
         </div>
 
         {/* Spotify login hint */}
-        <p className="mt-auto pt-4 text-[11px] text-spotify-light-gray/40">
+        <p className="mt-auto pt-4 text-xs text-spotify-light-gray">
           Only hearing previews?{" "}
           <a
             href="https://accounts.spotify.com/login"

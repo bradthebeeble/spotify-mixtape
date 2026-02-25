@@ -310,8 +310,22 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
           </button>
         </div>
 
+        {/* Spotify login hint */}
+        <p className="mt-auto pt-4 text-[11px] text-spotify-light-gray/40">
+          Only hearing previews?{" "}
+          <a
+            href="https://accounts.spotify.com/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline transition-colors hover:text-spotify-green"
+          >
+            Log in to Spotify
+          </a>{" "}
+          for full tracks.
+        </p>
+
         {/* Playlist name */}
-        <p className="mt-auto pt-4 text-[11px] text-spotify-light-gray/30">
+        <p className="pt-1 text-[11px] text-spotify-light-gray/30">
           {mixtape.n}
         </p>
       </main>

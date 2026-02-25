@@ -100,18 +100,27 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
     document.body.appendChild(script);
   }, []);
 
-  // Initialize embed when user hits play
-  useEffect(() => {
-    if (!hasStarted || !currentTrackId) return;
+  // Create / recreate the Spotify embed
+  const initEmbed = useCallback(() => {
+    if (!embedRef.current) return;
+
+    // Destroy existing controller if any
+    if (controllerRef.current) {
+      controllerRef.current.destroy();
+      controllerRef.current = null;
+    }
+    embedRef.current.innerHTML = "";
+
+    const trackId = mixtape.t[currentIndexRef.current];
+    if (!trackId) return;
 
     function createEmbed(api: IFrameAPI) {
       if (!embedRef.current) return;
-      embedRef.current.innerHTML = "";
 
       api.createController(
         embedRef.current,
         {
-          uri: `spotify:track:${currentTrackId}`,
+          uri: `spotify:track:${trackId}`,
           width: "100%",
           height: 352,
         },
@@ -140,12 +149,21 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
 
     if (window.__spotifyIFrameAPI) {
       createEmbed(window.__spotifyIFrameAPI);
+    }
+  }, [mixtape.t, advanceTrack]);
+
+  // Initialize embed when user hits play
+  useEffect(() => {
+    if (!hasStarted || !currentTrackId) return;
+
+    if (window.__spotifyIFrameAPI) {
+      initEmbed();
       return;
     }
 
     window.onSpotifyIframeApiReady = (api) => {
       window.__spotifyIFrameAPI = api;
-      createEmbed(api);
+      initEmbed();
     };
   }, [hasStarted]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -312,18 +330,26 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
         </div>
 
         {/* Spotify login hint */}
-        <p className="mt-auto pt-4 text-xs text-spotify-light-gray">
-          Only hearing previews?{" "}
-          <a
-            href="https://accounts.spotify.com/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline transition-colors hover:text-spotify-green"
+        <div className="mt-auto flex flex-col items-center gap-2 pt-4">
+          <p className="text-xs text-spotify-light-gray">
+            Only hearing previews?{" "}
+            <a
+              href="https://accounts.spotify.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition-colors hover:text-spotify-green"
+            >
+              Log in to Spotify
+            </a>
+            , then:
+          </p>
+          <button
+            onClick={initEmbed}
+            className="rounded-full border border-spotify-light-gray/30 px-4 py-1.5 text-xs font-medium text-spotify-light-gray transition-colors hover:border-spotify-green hover:text-spotify-green"
           >
-            Log in to Spotify
-          </a>{" "}
-          for full tracks.
-        </p>
+            Reload player
+          </button>
+        </div>
 
         {/* Playlist name */}
         <p className="pt-1 text-[11px] text-spotify-light-gray/30">

@@ -70,8 +70,9 @@ export default function Player({ mixtape }: { mixtape: EncodedMixtape }) {
         controllerRef.current.loadUri(`spotify:track:${trackId}`);
       }
 
-      // Reveal after the new track has had time to load
+      // Reveal after the new track has had time to load, then play
       setTimeout(() => {
+        controllerRef.current?.play();
         setIsTransitioning(false);
         advancingRef.current = false;
       }, 1200);

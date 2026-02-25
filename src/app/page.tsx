@@ -1,77 +1,184 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  generateCodeVerifier,
-  generateCodeChallenge,
-  getAuthUrl,
-} from "@/lib/spotify";
+import { useState } from "react";
+import { extractPlaylistId, encodeMixtape } from "@/lib/spotify";
+
+interface PlaylistPreview {
+  name: string;
+  owner: string;
+  description: string;
+  tracks: { id: string; name: string; artist: string }[];
+}
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [playlist, setPlaylist] = useState<PlaylistPreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("spotify_access_token");
-    if (token) setIsLoggedIn(true);
-  }, []);
+  async function handleImport() {
+    setError(null);
+    setPlaylist(null);
 
-  async function handleLogin() {
-    const verifier = generateCodeVerifier();
-    localStorage.setItem("spotify_code_verifier", verifier);
-    const challenge = await generateCodeChallenge(verifier);
-    window.location.href = getAuthUrl(challenge);
+    const playlistId = extractPlaylistId(url);
+    if (!playlistId) {
+      setError("Invalid playlist URL. Please paste a Spotify playlist link.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/playlist/${playlistId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to import playlist");
+      setPlaylist(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load playlist."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (isLoggedIn) {
-    window.location.href = "/admin";
-    return null;
+  function getShareableLink(): string {
+    if (!playlist) return "";
+    const encoded = encodeMixtape({
+      n: playlist.name,
+      o: playlist.owner,
+      d: playlist.description.replace(/<[^>]*>/g, "").slice(0, 100),
+      t: playlist.tracks.map((t) => t.id),
+    });
+    return `${process.env.NEXT_PUBLIC_APP_URL}/listen/${encoded}`;
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(getShareableLink());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-6">
-      <div className="animate-fade-in flex w-full max-w-sm flex-col items-center gap-8 text-center">
-        {/* Logo / Icon */}
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-spotify-green">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            className="h-10 w-10 text-black"
-          >
-            <path
-              d="M9 18V5l12-2v13"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+    <div className="flex min-h-dvh flex-col px-4 py-6 sm:px-6">
+      {/* Header */}
+      <header className="mx-auto flex w-full max-w-lg items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-spotify-green">
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-black">
+            <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx="6" cy="18" r="3" fill="currentColor" />
             <circle cx="18" cy="16" r="3" fill="currentColor" />
           </svg>
         </div>
+        <span className="text-lg font-bold">Mixtape</span>
+      </header>
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mixtape</h1>
-          <p className="mt-2 text-spotify-light-gray">
-            Turn any Spotify playlist into a surprise listening experience.
+      {/* Main */}
+      <main className="mx-auto mt-10 flex w-full max-w-lg flex-1 flex-col gap-6">
+        <div className="animate-fade-in">
+          <h1 className="text-2xl font-bold">Create a Mixtape</h1>
+          <p className="mt-1 text-sm text-spotify-light-gray">
+            Paste a Spotify playlist URL to create a shareable listening experience.
             Track by track, no peeking ahead.
           </p>
         </div>
 
-        <button
-          onClick={handleLogin}
-          className="flex w-full items-center justify-center gap-3 rounded-full bg-spotify-green px-8 py-3.5 text-base font-bold text-black transition-all hover:scale-105 hover:bg-spotify-green-light active:scale-95"
-        >
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-          </svg>
-          Log in with Spotify
-        </button>
+        {/* Input */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleImport()}
+            placeholder="https://open.spotify.com/playlist/..."
+            className="flex-1 rounded-lg border border-spotify-gray bg-spotify-dark px-4 py-3 text-sm text-white placeholder-spotify-light-gray/50 outline-none transition-colors focus:border-spotify-green"
+          />
+          <button
+            onClick={handleImport}
+            disabled={loading || !url.trim()}
+            className="rounded-lg bg-spotify-green px-5 py-3 text-sm font-bold text-black transition-all hover:bg-spotify-green-light disabled:opacity-40"
+          >
+            {loading ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-black border-t-transparent" />
+            ) : (
+              "Import"
+            )}
+          </button>
+        </div>
 
-        <p className="text-xs text-spotify-light-gray/60">
-          You&apos;ll be redirected to Spotify to authorize access to your
-          playlists.
-        </p>
-      </div>
+        {/* Error */}
+        {error && (
+          <div className="animate-fade-in rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
+        {/* Playlist Preview */}
+        {playlist && (
+          <div className="animate-fade-in flex flex-col gap-5">
+            {/* Info */}
+            <div className="rounded-xl bg-spotify-dark p-4">
+              <h2 className="text-lg font-bold">{playlist.name}</h2>
+              <p className="mt-1 text-sm text-spotify-light-gray">
+                by {playlist.owner} &middot; {playlist.tracks.length} tracks
+              </p>
+            </div>
+
+            {/* Track List */}
+            <div className="rounded-xl bg-spotify-dark p-4">
+              <p className="mb-3 text-sm font-semibold">Track List</p>
+              <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                {playlist.tracks.map((track, i) => (
+                  <div
+                    key={track.id}
+                    className="flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-spotify-gray/50"
+                  >
+                    <span className="w-5 text-right text-xs text-spotify-light-gray">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">{track.name}</p>
+                      <p className="truncate text-xs text-spotify-light-gray">
+                        {track.artist}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Share Link */}
+            <div className="flex flex-col gap-3 rounded-xl bg-spotify-dark p-4">
+              <p className="text-sm font-semibold">Shareable Link</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={getShareableLink()}
+                  className="flex-1 rounded-lg bg-spotify-gray px-3 py-2.5 text-sm text-spotify-light-gray outline-none"
+                />
+                <button
+                  onClick={handleCopy}
+                  className="flex-shrink-0 rounded-lg bg-spotify-green px-4 py-2.5 text-sm font-bold text-black transition-all hover:bg-spotify-green-light active:scale-95"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p className="text-xs text-spotify-light-gray/60">
+                Share this link with listeners. They&apos;ll hear each track one
+                at a time, without knowing what comes next.
+              </p>
+            </div>
+
+            <button
+              onClick={() => { setPlaylist(null); setUrl(""); }}
+              className="text-sm text-spotify-light-gray transition-colors hover:text-white"
+            >
+              Import another playlist
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
